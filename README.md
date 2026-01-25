@@ -1,4 +1,8 @@
-C2Shield: Behavioral Detection of Remote Access Tools (RATs) 📌 Overview C2Shield is an academic cybersecurity project designed to explore behavioral detection of Remote Access Tools (RATs) through system-level indicators. Modern attackers often bypass signature-based defenses with custom RATs and command-and-control (C2) mechanisms. This project bridges the gap between offensive knowledge and defensive engineering, requiring students to design a controlled RAT and then build a detection system that identifies compromise through behavior rather than static signatures.
+C2Shield: Behavioral Detection of Remote Access Tools (RATs) 
+📌 Overview C2Shield is an academic cybersecurity project designed to explore behavioral detection of Remote Access Tools (RATs) through system-level indicators. 
+Modern attackers often bypass signature-based defenses with custom RATs and command-and-control (C2) mechanisms. 
+This project bridges the gap between offensive knowledge and defensive engineering, requiring students to design a controlled RAT and then build a detection system 
+that identifies compromise through behavior rather than static signatures.
 🎯 Objectives
 - Understand RAT and C2 channel operations
 - Design secure client–server communication
