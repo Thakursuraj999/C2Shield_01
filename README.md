@@ -26,4 +26,3 @@ C2Shield: Behavioral Detection of Remote Access Tools (RATs) 📌 Overview C2Shi
 - Lab & Analysis: VirtualBox/VMware, Windows 10/11, Kali Linux, Ubuntu, Sysmon, Wireshark, Autoruns, Process Explorer
 - Documentation: Architecture, threat model, ATT&CK mapping, detection rules, ethics report
 - Evaluation: Detection accuracy metrics, false positives/negatives, final report & presentation
-summarize this under 350 character for GitHub repo description
