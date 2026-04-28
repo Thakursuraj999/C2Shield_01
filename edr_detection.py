@@ -1,6 +1,10 @@
+import argparse
 import json
 import os
+import random
+import threading
 import time
+from datetime import datetime
 from typing import Dict, Any, List, Tuple
 
 SUSPICIOUS_PROCESS_PATTERNS = [
@@ -173,22 +177,115 @@ def monitor_files(paths: List[str]) -> None:
             event = safe_parse_json(line.strip())
             process_event(event, persistence_cache)
 
+def ensure_logs_exist(paths: List[str]) -> None:
+    for path in paths:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        if not os.path.exists(path):
+            with open(path, "w", encoding="utf-8"):
+                pass
+
+def now_ts() -> str:
+    return datetime.utcnow().isoformat() + "Z"
+
+def write_event(path: str, event: Dict[str, Any]) -> None:
+    with open(path, "a", encoding="utf-8") as file_handle:
+        file_handle.write(json.dumps(event) + "\n")
+
+def generate_process_event(malicious: bool) -> Dict[str, Any]:
+    benign_processes = ["chrome.exe", "explorer.exe", "svchost.exe", "notepad.exe"]
+    malicious_processes = ["keylog.exe", "hooksvc.exe", "mimikatz.exe", "powershell -enc"]
+    process_name = random.choice(malicious_processes if malicious else benign_processes)
+    return {
+        "event_type": "process_start",
+        "timestamp": now_ts(),
+        "process_name": process_name,
+        "pid": random.randint(1000, 9000),
+        "user": random.choice(["student", "admin", "labuser"]),
+    }
+
+def generate_network_event(malicious: bool) -> Dict[str, Any]:
+    benign_ports = [80, 443, 53]
+    dest_port = 3389 if malicious and random.random() < 0.5 else random.choice(benign_ports)
+    bytes_sent = random.randint(1000, 50000)
+    if malicious and random.random() < 0.5:
+        bytes_sent = 6 * 1024 * 1024
+    process_name = random.choice(["chrome.exe", "svchost.exe", "unknown.exe"])
+    return {
+        "event_type": "network_connection",
+        "timestamp": now_ts(),
+        "process_name": process_name,
+        "dest_ip": f"192.168.1.{random.randint(2, 254)}",
+        "dest_port": dest_port,
+        "bytes_sent": bytes_sent,
+    }
+
+def generate_registry_event(malicious: bool) -> Dict[str, Any]:
+    key = "HKCU\Software\Microsoft\Windows\CurrentVersion\Run"
+    value = "Updater"
+    if malicious:
+        value = "PersistenceLoader"
+    return {
+        "event_type": "registry_event",
+        "timestamp": now_ts(),
+        "key": key,
+        "value": value,
+        "action": "set_value",
+    }
+
+def generate_persistence_event(malicious: bool) -> Dict[str, Any]:
+    benign_paths = ["C:/Program Files/GoodApp/app.exe", "C:/Windows/System32/svchost.exe"]
+    malicious_paths = ["C:/Users/student/AppData/Roaming/keylog.exe", "C:/Users/student/Temp/rat.exe"]
+    path = random.choice(malicious_paths if malicious else benign_paths)
+    process_name = os.path.basename(path)
+    return {
+        "event_type": "persistence_detected",
+        "timestamp": now_ts(),
+        "path": path,
+        "entry": "RunKey",
+        "user": random.choice(["student", "admin", "labuser"]),
+        "process_name": process_name,
+    }
+
+def telemetry_generator(paths: Dict[str, str], interval: float, malicious_rate: float) -> None:
+    while True:
+        malicious = random.random() < malicious_rate
+        write_event(paths["process"], generate_process_event(malicious))
+        write_event(paths["network"], generate_network_event(malicious))
+        write_event(paths["registry"], generate_registry_event(malicious))
+        write_event(paths["persistence"], generate_persistence_event(malicious))
+        time.sleep(interval)
+
+def build_paths(log_dir: str) -> Dict[str, str]:
+    return {
+        "process": os.path.join(log_dir, "process.jsonl"),
+        "network": os.path.join(log_dir, "network.jsonl"),
+        "registry": os.path.join(log_dir, "registry.jsonl"),
+        "persistence": os.path.join(log_dir, "persistence.jsonl"),
+    }
+
 def main() -> None:
-    files = [
-        "process.jsonl",
-        "network.jsonl",
-        "registry.jsonl",
-        "persistence.jsonl",
-    ]
+    parser = argparse.ArgumentParser(description="EDR prototype with telemetry generator.")
+    parser.add_argument("--mode", choices=["detect", "generate", "demo"], default="demo")
+    parser.add_argument("--log-dir", default=".")
+    parser.add_argument("--interval", type=float, default=0.6)
+    parser.add_argument("--malicious-rate", type=float, default=0.25)
+    args = parser.parse_args()
 
-    missing = [path for path in files if not os.path.exists(path)]
-    if missing:
-        print(f"Missing telemetry files: {', '.join(missing)}")
-        print("Ensure the telemetry files exist in the current directory.")
-        return
+    paths = build_paths(args.log_dir)
+    ensure_logs_exist(list(paths.values()))
 
-    print("EDR detection started. Monitoring telemetry logs...")
-    monitor_files(files)
+    if args.mode in {"generate", "demo"}:
+        generator_thread = threading.Thread(
+            target=telemetry_generator,
+            args=(paths, args.interval, args.malicious_rate),
+            daemon=True,
+        )
+        generator_thread.start()
+        print("Telemetry generator started.")
+
+    if args.mode in {"detect", "demo"}:
+        print("EDR detection started. Monitoring telemetry logs...")
+        monitor_files(list(paths.values()))
 
 if __name__ == "__main__":
     main()
